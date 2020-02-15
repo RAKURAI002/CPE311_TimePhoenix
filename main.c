@@ -10,6 +10,8 @@
 #include "stm32l1xx_ll_lcd.h"
 #include "stm32l152_glass_lcd.h"
 #include "stm32l1xx_ll_tim.h"
+#include "stm32l1xx_ll_adc.h"
+#include "stm32l1xx_ll_dac.h"
 
 
 #define Fs   (uint16_t)740
@@ -56,11 +58,22 @@
 #define ARR_CALCULATE(N) ((32000000) / ((TIMx_PSC) * (N)))
 
 /*TEMPO CALCULATION*/
+
 #define NOTE_TIME							(float)((60.0/BPM)/2.0) //1 note = eight note
 #define MUTE_TIME							(float)0.05
 #define MUTE_ARR							(int)(((32000000 * MUTE_TIME) / ((32000)))-1)
 #define EIGHT_NOTE_ARR				(int)(((32000000 * NOTE_TIME) / ((32000)))-1)
 #define LAST_EIGHT_NOTE_ARR		(int)((((32000000 * NOTE_TIME) / ((32000)))-1)-MUTE_ARR)
+#include "dwt_delay.h"
+
+#define DS1820_SKIP_ROM 0xCC
+#define DS1820_CONV_TEMP 0x44
+#define DS1820_READ_SCTPAD 0xBE
+
+#define OW_IO_PIN LL_GPIO_PIN_7
+#define OW_IO_PORT GPIOB
+#define OW_IO_CLK_CMD() LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB)
+
 
 void SystemClock_Config(void);
 void TIM_BASE_Config(uint16_t);
@@ -68,6 +81,13 @@ void TIM_OC_GPIO_Config(void);
 void TIM_OC_Config(uint16_t);
 void TIM_BASE_DurationConfig(void);
 void GPIO_Config(void);
+
+/// Temp
+void OW_WriteByte(uint8_t data);
+uint8_t DS1820_ResetPulse(void);
+uint16_t OW_ReadByte(void);
+void OW_WriteByte(uint8_t data);
+void DS1820_GPIO_Configure(void);
 
 int tetris[] = {E,E,MUTE,B,MUTE,C,MUTE,D,D,MUTE,C,MUTE,B,MUTE,A,A,MUTE,A,MUTE,C,MUTE,E,E,MUTE,D,MUTE,C,MUTE,B,B,B,MUTE,C,MUTE,D,D,MUTE,E,E,MUTE,C,C,MUTE,A,A,MUTE,A,A,MUTE,Abs,Abs,Abs,MUTE,D,D,MUTE,F
 									,MUTE,A1,A1,MUTE,G,MUTE,F,MUTE,E,E,E,MUTE,C,MUTE,E,E,MUTE,D,MUTE,C,MUTE,B,B,MUTE,B,MUTE,C,MUTE,D,D,MUTE,E,E,MUTE,C,C,MUTE,A,A,MUTE,A,A,MUTE,Abs,MUTE};
@@ -84,17 +104,19 @@ int Pirate[] = {D,D,MUTE,D,MUTE,D,D,MUTE,D,MUTE,D,D,MUTE,D,MUTE,D,MUTE,D,D,MUTE,
 												MUTE,D2,MUTE,F2s,MUTE,E2,E2,MUTE,E2,E2,MUTE,D2,MUTE,Cs,MUTE,D2,D2,MUTE,D2,D2,MUTE,E2,E2,MUTE,F2s,F2s,MUTE,F2s,MUTE,F2s,MUTE,G2,G2,MUTE,A2,
 												A2,A2,A2,MUTE,F2s,MUTE,D2,MUTE,A,A,A,A,MUTE,B,B,B,B,MUTE,G2,MUTE,D2,MUTE,A,A,A,A,MUTE,D,D,MUTE,D,D,MUTE,Cs,Cs,Cs};
 	
-int mario[] = 	{ME ,ME ,MUTE,ME ,MUTE,ME ,MUTE,MC ,MUTE,ME ,MUTE,MG ,MUTE,MC ,MUTE,MME ,MUTE,MMB ,MUTE,
-									ME ,MUTE,MG ,MUTE,MA ,MUTE,MF ,MUTE,MG ,MUTE,ME ,MUTE,MC ,MUTE,MD ,MUTE,MMB ,MUTE,MC ,MUTE,
-									MME ,MUTE,MMB ,MUTE,ME ,MUTE,MG ,MUTE,MA ,MUTE,MF ,MUTE,MG ,MUTE,ME ,MUTE,MC ,MUTE,
-									MD ,MUTE,MMB ,MUTE,MG ,MUTE,MF1 ,MUTE,MF ,MUTE,MD ,MUTE,ME,MUTE,MC ,MUTE,MC ,MUTE,MD ,MUTE,
-									MG ,MUTE,MF1 ,MUTE,MF ,MUTE,MD ,MUTE,ME ,MUTE,MMC ,MUTE,MMC ,MUTE,MMC ,MUTE,MG ,MUTE,MF1 ,MUTE,MF ,MUTE,MD ,MUTE,
-									ME ,MUTE,MC ,MUTE,MC ,MUTE,MD ,MUTE,MD1 ,MUTE,MD ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,
-									MC ,MUTE,MD ,MUTE,ME ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MD ,MUTE,ME,MUTE,
-									MC ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MD ,MUTE,ME ,MUTE,MC ,MUTE};
-
+int m1[] = 	{MF ,ME, MF1, MUTE};//,MUTE,ME ,MUTE,ME ,MUTE,MC ,MUTE,ME ,MUTE,MG ,MUTE,MC ,MUTE,MME ,MUTE,MMB ,MUTE,
+//									ME ,MUTE,MG ,MUTE,MA ,MUTE,MF ,MUTE,MG ,MUTE,ME ,MUTE,MC ,MUTE,MD ,MUTE,MMB ,MUTE,MC ,MUTE,
+//									MME ,MUTE,MMB ,MUTE,ME ,MUTE,MG ,MUTE,MA ,MUTE,MF ,MUTE,MG ,MUTE,ME ,MUTE,MC ,MUTE,
+//									MD ,MUTE,MMB ,MUTE,MG ,MUTE,MF1 ,MUTE,MF ,MUTE,MD ,MUTE,ME,MUTE,MC ,MUTE,MC ,MUTE,MD ,MUTE,
+//									MG ,MUTE,MF1 ,MUTE,MF ,MUTE,MD ,MUTE,ME ,MUTE,MMC ,MUTE,MMC ,MUTE,MMC ,MUTE,MG ,MUTE,MF1 ,MUTE,MF ,MUTE,MD ,MUTE,
+//									ME ,MUTE,MC ,MUTE,MC ,MUTE,MD ,MUTE,MD1 ,MUTE,MD ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,
+//									MC ,MUTE,MD ,MUTE,ME ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MD ,MUTE,ME,MUTE,
+//									MC ,MUTE,MC ,MUTE,MC ,MUTE,MC ,MUTE,MD ,MUTE,ME ,MUTE,MC ,MUTE};
+int m2[] = 	{MD ,MUTE, MC,MUTE};
+int m3[] = 	{MF ,MMC, ME, MUTE};
+int m4[] = 	{MC ,MG, MD, MUTE};
 uint16_t j;
-
+int z =0 ;
 uint32_t seg[10] = {LL_GPIO_PIN_2 | LL_GPIO_PIN_10 | LL_GPIO_PIN_11 | LL_GPIO_PIN_12 | LL_GPIO_PIN_13 | LL_GPIO_PIN_14,
 									 LL_GPIO_PIN_10 | LL_GPIO_PIN_11,
 									 LL_GPIO_PIN_2 | LL_GPIO_PIN_10 | LL_GPIO_PIN_12 | LL_GPIO_PIN_13 | LL_GPIO_PIN_15,
@@ -104,14 +126,24 @@ uint32_t seg[10] = {LL_GPIO_PIN_2 | LL_GPIO_PIN_10 | LL_GPIO_PIN_11 | LL_GPIO_PI
 									 LL_GPIO_PIN_2 | LL_GPIO_PIN_11 | LL_GPIO_PIN_12 | LL_GPIO_PIN_13 | LL_GPIO_PIN_14 | LL_GPIO_PIN_15,
 									 LL_GPIO_PIN_2 | LL_GPIO_PIN_10 | LL_GPIO_PIN_11,
 									 LL_GPIO_PIN_2 | LL_GPIO_PIN_10 | LL_GPIO_PIN_11 | LL_GPIO_PIN_12 | LL_GPIO_PIN_13 | LL_GPIO_PIN_14| LL_GPIO_PIN_15,
-									 LL_GPIO_PIN_2 | LL_GPIO_PIN_10 | LL_GPIO_PIN_11| LL_GPIO_PIN_14 | LL_GPIO_PIN_15,
+									 LL_GPIO_PIN_2 | LL_GPIO_PIN_10| LL_GPIO_PIN_14 | LL_GPIO_PIN_15,
 									 };
 uint32_t digit[4] = {LL_GPIO_PIN_0,LL_GPIO_PIN_1,LL_GPIO_PIN_2,LL_GPIO_PIN_3};
 
 uint16_t adc_data = 0;
+void Temp(void);
+
+uint8_t tl, th;
+uint16_t temp;
+float temperature;
+uint16_t showtemp;
+uint8_t modefl = 1;
+
+uint8_t mode =1;
+
 
 int main(void)
-{
+ {
   SystemClock_Config();
 	TIM_OC_GPIO_Config();
 	GPIO_Config();
@@ -119,55 +151,357 @@ int main(void)
 	TIM_BASE_DurationConfig();
 	
 	
+	LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_1);
 	
+	LL_GPIO_InitTypeDef GPIO_InitStruct;
+	
+		// SWITCH PA03
+	GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_3;
+	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+	LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	LL_GPIO_IsInputPinSet(GPIOA, LL_GPIO_PIN_3);
+	int tempv[4] =  {0,3,2,9};
 	int ij[4] = {0,0,0,0};
 	int music = 0;
-	
+	int toggle =0;
+	int onof = 1;
+	int sound = 0;
+//	while(1)
+//	{
+//		LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_1);
+//		DAC->DHR12R1 = 0xFFFF;
+//		LL_mDelay(1000);
+//		DAC->DHR12R1 = 0xFE20;
+//		LL_mDelay(1000);
+//		DAC->DHR12R1 = 0xFE00;
+//		LL_mDelay(1000);
+//		DAC->DHR12R1 = 0xFDC0;
+//		LL_mDelay(1000);
+//	}
+
 	while(1)
 	{
-		ADC1->CR2 |= (1<<30);
-		while((ADC1->SR & (1<<1)) == 0);
-		adc_data = ADC1->DR;
+		
+		/// GET DA TEMP
+		Temp();
+		/// END TEMP
+//		ADC1->CR2 |= (1<<30);
+//		while((ADC1->SR & (1<<1)) == 0);
+//		adc_data = ADC1->DR;
 
-		LL_GPIO_ResetOutputPin(GPIOB,LL_GPIO_PIN_2 |LL_GPIO_PIN_10 |LL_GPIO_PIN_11 |LL_GPIO_PIN_12 |LL_GPIO_PIN_13 |LL_GPIO_PIN_14 |LL_GPIO_PIN_15);
+		for(j=1;j<4;j++){
+			LL_GPIO_ResetOutputPin(GPIOB,LL_GPIO_PIN_2 |LL_GPIO_PIN_10 |LL_GPIO_PIN_11 |LL_GPIO_PIN_12 |LL_GPIO_PIN_13 |LL_GPIO_PIN_14 |LL_GPIO_PIN_15);
+			LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_0|LL_GPIO_PIN_1|LL_GPIO_PIN_2|LL_GPIO_PIN_3);
+			LL_GPIO_SetOutputPin(GPIOC,digit[j]);
+			LL_GPIO_SetOutputPin(GPIOB,seg[tempv[j]]);
+		}
+			
+		//LL_mDelay(1000);
+		
+		if(LL_GPIO_IsInputPinSet(GPIOA, LL_GPIO_PIN_0)&& modefl == 1)
+		{
+			mode = (mode+1) % 5 ;
+			sound = 1;
+			//modefl = 0;
+		}
+		if(LL_GPIO_IsInputPinSet(GPIOC, LL_GPIO_PIN_6))
+		{
+			toggle = (toggle + 1)%2;
+			if(toggle == 1 )
+			{DAC->DHR12R1 = 0xFFFF ;
+			onof = 1;}
+			else 
+			{DAC->DHR12R1 = 0x0000;
+			onof = 0;}
+		}
+
+		if(onof == 1)
+		switch(mode)
+		{
+			case 1 :
+				ij[0] = 1;
+				/// SPEAKER PART DONT TOUCH !
+			if(sound ==1)
+				for(int i=0;i<sizeof(m2)/4;)
+				{
+					if(LL_TIM_IsActiveFlag_UPDATE(TIM2) == SET )
+					{
+						LL_TIM_SetAutoReload(TIM4,ARR_CALCULATE(m1[i]));
+						LL_TIM_OC_SetCompareCH1(TIM4,LL_TIM_GetAutoReload(TIM4) / 2);
+						if(m1[i]==MUTE){LL_TIM_SetAutoReload(TIM2,MUTE_ARR);}
+						else if(m1[i+1]==MUTE){LL_TIM_SetAutoReload(TIM2,LAST_EIGHT_NOTE_ARR);}
+						else{LL_TIM_SetAutoReload(TIM2,EIGHT_NOTE_ARR);}
+						++i;
+						LL_TIM_ClearFlag_UPDATE(TIM2);
+						LL_TIM_SetCounter(TIM2, 0);
+						if(i>=4){sound = 0;LL_TIM_SetAutoReload(TIM2,MUTE_ARR);}
+					}
+					for(int j=0;j<1;j++){
+					LL_GPIO_ResetOutputPin(GPIOB,LL_GPIO_PIN_2 |LL_GPIO_PIN_10 |LL_GPIO_PIN_11 |LL_GPIO_PIN_12 |LL_GPIO_PIN_13 |LL_GPIO_PIN_14 |LL_GPIO_PIN_15);
 					LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_0|LL_GPIO_PIN_1|LL_GPIO_PIN_2|LL_GPIO_PIN_3);
-				for(int j=0;j<=3;j++){
-					
 					LL_GPIO_SetOutputPin(GPIOC,digit[j]);
-					LL_GPIO_SetOutputPin(GPIOB,seg[1]);
+					LL_GPIO_SetOutputPin(GPIOB,seg[ij[j]]);
 				}
-		
-		
-		/// SPEAKER PART DONT TOUCH !
-			for(int i=0;i<sizeof(mario)/4;)
+				}
+			/// END SPEAKER
+			/// LIGHT THE FCKING LIGHT
+				DAC->DHR12R1 = 0xFFFF;
+			/// END LIGHT
+
+				break;
+				
+			case 2 :
+				ij[0] = 2;
+				/// SPEAKER PART DONT TOUCH !
+			if(sound ==1)
+				for(int i=0;i<sizeof(m2)/4;)
+				{
+					if(LL_TIM_IsActiveFlag_UPDATE(TIM2) == SET )
+					{
+						LL_TIM_SetAutoReload(TIM4,ARR_CALCULATE(m2[i]));
+						LL_TIM_OC_SetCompareCH1(TIM4,LL_TIM_GetAutoReload(TIM4) / 2);
+						if(m2[i]==MUTE){LL_TIM_SetAutoReload(TIM2,MUTE_ARR);}
+						else if(m2[i+1]==MUTE){LL_TIM_SetAutoReload(TIM2,LAST_EIGHT_NOTE_ARR);}
+						else{LL_TIM_SetAutoReload(TIM2,EIGHT_NOTE_ARR);}
+						++i;
+						LL_TIM_ClearFlag_UPDATE(TIM2);
+						LL_TIM_SetCounter(TIM2, 0);
+						if(i>=4){sound = 0;LL_TIM_SetAutoReload(TIM2,MUTE_ARR);}
+					}
+					for(int j=0;j<1;j++){
+					LL_GPIO_ResetOutputPin(GPIOB,LL_GPIO_PIN_2 |LL_GPIO_PIN_10 |LL_GPIO_PIN_11 |LL_GPIO_PIN_12 |LL_GPIO_PIN_13 |LL_GPIO_PIN_14 |LL_GPIO_PIN_15);
+					LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_0|LL_GPIO_PIN_1|LL_GPIO_PIN_2|LL_GPIO_PIN_3);
+					LL_GPIO_SetOutputPin(GPIOC,digit[j]);
+					LL_GPIO_SetOutputPin(GPIOB,seg[ij[j]]);
+				}
+				}
+			/// END SPEAKER
+			/// LIGHT THE FCKING LIGHT
+				DAC->DHR12R1 = 0xFE10;
+			/// END LIGHT
+
+				break;
+			case 3 :
+				ij[0] = 3;
+				
+			/// SPEAKER PART DONT TOUCH !
+			if(sound ==1)
+			for(int i=0;i<sizeof(m3)/4;)
 			{
 				if(LL_TIM_IsActiveFlag_UPDATE(TIM2) == SET )
 				{
-					LL_TIM_SetAutoReload(TIM4,ARR_CALCULATE(mario[i]));
+					LL_TIM_SetAutoReload(TIM4,ARR_CALCULATE(m3[i]));
 					LL_TIM_OC_SetCompareCH1(TIM4,LL_TIM_GetAutoReload(TIM4) / 2);
-					if(mario[i]==MUTE){LL_TIM_SetAutoReload(TIM2,MUTE_ARR);}
-					else if(mario[i+1]==MUTE){LL_TIM_SetAutoReload(TIM2,LAST_EIGHT_NOTE_ARR);}
+					//TIM_OC_Config(ARR_CALCULATE(sheetnote[i]));
+					if(m3[i]==MUTE){LL_TIM_SetAutoReload(TIM2,MUTE_ARR);}
+					else if(m3[i+1]==MUTE){LL_TIM_SetAutoReload(TIM2,LAST_EIGHT_NOTE_ARR);}
 					else{LL_TIM_SetAutoReload(TIM2,EIGHT_NOTE_ARR);}
 					++i;
 					LL_TIM_ClearFlag_UPDATE(TIM2);
+//				LL_TIM_SetAutoReload(TIM4, MUTE); //Change ARR of Timer PWM
 					LL_TIM_SetCounter(TIM2, 0);
+					if(i>=4){sound = 0;LL_TIM_SetAutoReload(TIM2,MUTE_ARR);}
 				}
-			}
-		/// END SPEAKER
+				for(int j=0;j<1;j++){
+					LL_GPIO_ResetOutputPin(GPIOB,LL_GPIO_PIN_2 |LL_GPIO_PIN_10 |LL_GPIO_PIN_11 |LL_GPIO_PIN_12 |LL_GPIO_PIN_13 |LL_GPIO_PIN_14 |LL_GPIO_PIN_15);
+					LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_0|LL_GPIO_PIN_1|LL_GPIO_PIN_2|LL_GPIO_PIN_3);
+					LL_GPIO_SetOutputPin(GPIOC,digit[j]);
+					LL_GPIO_SetOutputPin(GPIOB,seg[ij[j]]);
+				}
+			
+		}
+			/// END SPEAKER
+			/// LIGHT THE FCKING LIGHT
+				DAC->DHR12R1 = 0xFDE0;
+			/// END LIGHT
+				break;
+		
+			case 4 :
+					ij[0] = 4;
+					
+			/// SPEAKER PART DONT TOUCH !
+			if(sound ==1)
+			for(int i=0;i<sizeof(m4)/4;)
+			{
+				if(LL_TIM_IsActiveFlag_UPDATE(TIM2) == SET )
+				{
+					LL_TIM_SetAutoReload(TIM4,ARR_CALCULATE(m4[i]));
+					LL_TIM_OC_SetCompareCH1(TIM4,LL_TIM_GetAutoReload(TIM4) / 2);
+					//TIM_OC_Config(ARR_CALCULATE(sheetnote[i]));
+					if(m4[i]==MUTE){LL_TIM_SetAutoReload(TIM2,MUTE_ARR);}
+					else if(m4[i+1]==MUTE){LL_TIM_SetAutoReload(TIM2,LAST_EIGHT_NOTE_ARR);}
+					else{LL_TIM_SetAutoReload(TIM2,EIGHT_NOTE_ARR);}
+					++i;
+					LL_TIM_ClearFlag_UPDATE(TIM2);
+//				LL_TIM_SetAutoReload(TIM4, MUTE); //Change ARR of Timer PWM
+					LL_TIM_SetCounter(TIM2, 0);
+					if(i>=4){sound = 0;LL_TIM_SetAutoReload(TIM2,MUTE_ARR);}
+				}
+				for(int j=0;j<1;j++){
+					LL_GPIO_ResetOutputPin(GPIOB,LL_GPIO_PIN_2 |LL_GPIO_PIN_10 |LL_GPIO_PIN_11 |LL_GPIO_PIN_12 |LL_GPIO_PIN_13 |LL_GPIO_PIN_14 |LL_GPIO_PIN_15);
+					LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_0|LL_GPIO_PIN_1|LL_GPIO_PIN_2|LL_GPIO_PIN_3);
+					LL_GPIO_SetOutputPin(GPIOC,digit[j]);
+					LL_GPIO_SetOutputPin(GPIOB,seg[ij[j]]);
+				}
+			
+		}
+			/// END SPEAKER
+			/// LIGHT THE FCKING LIGHT
+			ADC1->CR2 |= (1<<30);
+//		while((ADC1->SR & (1<<1)) == 0);
+//		adc_data = ADC1->DR;
+				if(adc_data >= 21000)
+				DAC->DHR12R1 = 0xFFFF;
+				else if(adc_data< 21000)
+				DAC->DHR12R1 = 0xFE10;
+			/// END LIGHT
+				break;
+			default:
+				break;
+			
+		}
+		
 		}
 		
 
 		
 }
+void Temp(void )
+{
+		DS1820_ResetPulse();
+		OW_WriteByte(0xCC); //skip rom
+		OW_WriteByte(0x44); //temperature conversion
+		LL_mDelay(200); //typical conversion time is 200ms
+
+		DS1820_ResetPulse();
+		OW_WriteByte(0xCC); //skip rom
+		OW_WriteByte(0xBE); //read scratchpad
+
+		tl = OW_ReadByte();
+		th = OW_ReadByte();
+
+		temp = (th << 8) | tl;
+		temperature = (temp * 1.0) / 16.0;
+}
 
 
-void GPIO_Config(void)
+
+void OW_Master(void)
+{
+		LL_GPIO_SetPinMode(OW_IO_PORT, OW_IO_PIN, LL_GPIO_MODE_OUTPUT);
+		LL_GPIO_SetPinPull(OW_IO_PORT, OW_IO_PIN, LL_GPIO_PULL_NO);
+}
+void OW_Slave(void)
+{
+		LL_GPIO_SetPinMode(OW_IO_PORT, OW_IO_PIN, LL_GPIO_MODE_INPUT);
+		LL_GPIO_SetPinPull(OW_IO_PORT, OW_IO_PIN, LL_GPIO_PULL_UP);
+}
+void OW_WriteBit(uint8_t d)
+{
+		if(d == 1) //Write 1
+		{
+				OW_Master(); //uC occupies wire system
+				LL_GPIO_ResetOutputPin(OW_IO_PORT, OW_IO_PIN);
+				DWT_Delay(1);
+				OW_Slave(); //uC releases wire system
+				DWT_Delay(60);
+		}
+		else //Write 0
+		{
+				OW_Master(); //uC occupies wire system
+				DWT_Delay(60);
+				OW_Slave(); //uC releases wire system
+		}
+}
+
+void OW_WriteByte(uint8_t data)
+{
+	uint8_t i;
+
+	for(i = 0; i < 8; ++i)
+	{
+		OW_WriteBit(data & 0x01);
+		data = (data >> 1);
+	}	
+}
+
+uint8_t OW_ReadBit(void)
+{
+	OW_Master();
+	LL_GPIO_ResetOutputPin(OW_IO_PORT, OW_IO_PIN);
+	DWT_Delay(2);
+	OW_Slave();
+
+	return LL_GPIO_IsInputPinSet(OW_IO_PORT, OW_IO_PIN);
+}
+
+uint16_t OW_ReadByte(void)
+{
+	uint8_t i, bit;
+	uint8_t result = 0;
+	for(i = 0; i < 8; ++i)
+	{
+		bit = OW_ReadBit();
+		if(bit == 1)
+		{
+			result |= (1<<i);
+		}
+		DWT_Delay(60);
+	}
+	return result;
+}
+
+
+
+void DS1820_GPIO_Configure(void) /// PB06 TEMPERATURE
+{
+	LL_GPIO_InitTypeDef ds1820_io;
+
+	OW_IO_CLK_CMD();
+
+	ds1820_io.Mode = LL_GPIO_MODE_OUTPUT;
+	ds1820_io.Pin = OW_IO_PIN; // PB06
+	ds1820_io.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	ds1820_io.Pull = LL_GPIO_PULL_NO;
+	ds1820_io.Speed = LL_GPIO_SPEED_FREQ_LOW;
+	LL_GPIO_Init(OW_IO_PORT, &ds1820_io);
+}
+
+uint8_t DS1820_ResetPulse(void)
+{
+	OW_Master();
+	LL_GPIO_ResetOutputPin(OW_IO_PORT, OW_IO_PIN);
+	DWT_Delay(480);
+	OW_Slave();
+	DWT_Delay(80);
+
+	if(LL_GPIO_IsInputPinSet(OW_IO_PORT, OW_IO_PIN) == 0)
+	{
+		DWT_Delay(400);
+		return 0;
+	}
+	else
+	{
+		DWT_Delay(400);
+		return 1;
+	}
+}
+
+void GPIO_Config(void) /// 7-SEGMENT, PA04 DAC, PA05 LDR
 {
 	LL_GPIO_InitTypeDef timic_gpio;
 	
+	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
 	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOC);
 	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
 	
+	LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_DAC1);
+	LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_ADC1);
+	
+	/// 7SEGMENT
 	timic_gpio.Mode = LL_GPIO_MODE_OUTPUT;
 	timic_gpio.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
 	timic_gpio.Pin = LL_GPIO_PIN_2 |LL_GPIO_PIN_10 |LL_GPIO_PIN_11 |LL_GPIO_PIN_12 |LL_GPIO_PIN_13 |LL_GPIO_PIN_14 |LL_GPIO_PIN_15 ;
@@ -178,15 +512,25 @@ void GPIO_Config(void)
 	timic_gpio.Pin = LL_GPIO_PIN_0|LL_GPIO_PIN_1|LL_GPIO_PIN_2|LL_GPIO_PIN_3;
 	LL_GPIO_Init(GPIOC, &timic_gpio);
 	
-	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
-	LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_ADC1);
+	
 	LL_GPIO_InitTypeDef GPIO_InitStruct;
+	
+		// SWITCH PA03
+	GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_3;
+	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+	LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	// DAC LIGHT PA05
 	GPIO_InitStruct.Mode = LL_GPIO_MODE_ANALOG;
 	GPIO_InitStruct.Pin = LL_GPIO_PIN_5;
 	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
 	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
 	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
 	LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	
+
 	
 	ADC1->CR1 |= (1<<11);
 	ADC1->CR1 &= ~((7<<13)|(1<<24)|(1<<25));
@@ -210,7 +554,7 @@ void TIM_BASE_DurationConfig(void)
 	LL_TIM_Init(TIM2, &timbase_initstructure);
 	
 	LL_TIM_EnableCounter(TIM2); 
-	LL_TIM_ClearFlag_UPDATE(TIM2); //Force clear update flag
+	LL_TIM_ClearFlag_UPDATE(TIM2); //Force clear update flag 
 }
 
 void TIM_BASE_Config(uint16_t ARR)
@@ -228,7 +572,7 @@ void TIM_BASE_Config(uint16_t ARR)
 }
 
 
-void TIM_OC_GPIO_Config(void)
+void TIM_OC_GPIO_Config(void) /// SPEAKER PB06
 {
 	LL_GPIO_InitTypeDef gpio_initstructure;
 	
@@ -324,3 +668,4 @@ void SystemClock_Config(void)
   /* Update CMSIS variable (which can be updated also through SystemCoreClockUpdate function) */
   LL_SetSystemCoreClock(32000000);
 }
+
