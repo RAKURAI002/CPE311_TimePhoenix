@@ -1,0 +1,16 @@
+.\objects\cpe312-l1_timer.o: ..\src\CPE312-L1_timer.c
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\CMSIS\Device\ST\STM32L1xx\Include\stm32l1xx.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\CMSIS\Device\ST\STM32L1xx\Include\stm32l152xb.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\CMSIS\Include\core_cm3.h
+.\objects\cpe312-l1_timer.o: D:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\CMSIS\Include\core_cmInstr.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\CMSIS\Include\cmsis_armcc.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\CMSIS\Include\core_cmFunc.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\CMSIS\Device\ST\STM32L1xx\Include\system_stm32l1xx.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_gpio.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_pwr.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_rcc.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_bus.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_utils.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_system.h
+.\objects\cpe312-l1_timer.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_tim.h

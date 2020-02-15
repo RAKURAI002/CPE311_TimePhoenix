@@ -1,0 +1,17 @@
+.\objects\stlab9_usart.o: ..\src\STLAB9_USART.c
+.\objects\stlab9_usart.o: ..\..\Drivers\CMSIS\Device\ST\STM32L1xx\Include\stm32l1xx.h
+.\objects\stlab9_usart.o: ..\..\Drivers\CMSIS\Device\ST\STM32L1xx\Include\stm32l152xb.h
+.\objects\stlab9_usart.o: ..\..\Drivers\CMSIS\Include\core_cm3.h
+.\objects\stlab9_usart.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+.\objects\stlab9_usart.o: ..\..\Drivers\CMSIS\Include\core_cmInstr.h
+.\objects\stlab9_usart.o: ..\..\Drivers\CMSIS\Include\cmsis_armcc.h
+.\objects\stlab9_usart.o: ..\..\Drivers\CMSIS\Include\core_cmFunc.h
+.\objects\stlab9_usart.o: ..\..\Drivers\CMSIS\Device\ST\STM32L1xx\Include\system_stm32l1xx.h
+.\objects\stlab9_usart.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_gpio.h
+.\objects\stlab9_usart.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_pwr.h
+.\objects\stlab9_usart.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_rcc.h
+.\objects\stlab9_usart.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_bus.h
+.\objects\stlab9_usart.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_utils.h
+.\objects\stlab9_usart.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_system.h
+.\objects\stlab9_usart.o: ..\..\Drivers\STM32L1xx_HAL_Driver\Inc\stm32l1xx_ll_usart.h
+.\objects\stlab9_usart.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\String.h

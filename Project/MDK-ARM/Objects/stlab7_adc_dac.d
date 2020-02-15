@@ -1,0 +1,9 @@
+.\objects\stlab7_adc_dac.o: ..\src\STLAB7_ADC_DAC.c
+.\objects\stlab7_adc_dac.o: ..\..\Drivers\CMSIS\Device\ST\STM32L1xx\Include\stm32l1xx.h
+.\objects\stlab7_adc_dac.o: ..\..\Drivers\CMSIS\Device\ST\STM32L1xx\Include\stm32l152xb.h
+.\objects\stlab7_adc_dac.o: ..\..\Drivers\CMSIS\Include\core_cm3.h
+.\objects\stlab7_adc_dac.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+.\objects\stlab7_adc_dac.o: ..\..\Drivers\CMSIS\Include\core_cmInstr.h
+.\objects\stlab7_adc_dac.o: ..\..\Drivers\CMSIS\Include\cmsis_armcc.h
+.\objects\stlab7_adc_dac.o: ..\..\Drivers\CMSIS\Include\core_cmFunc.h
+.\objects\stlab7_adc_dac.o: ..\..\Drivers\CMSIS\Device\ST\STM32L1xx\Include\system_stm32l1xx.h
