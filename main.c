@@ -116,7 +116,8 @@ int m2[] = 	{MD ,MUTE, MC,MUTE};
 int m3[] = 	{MF ,MMC, ME, MUTE};
 int m4[] = 	{MC ,MG, MD, MUTE};
 uint16_t j;
-int z =0 ;
+uint16_t tempv[4] = {0,2,6,9};
+
 uint32_t seg[10] = {LL_GPIO_PIN_2 | LL_GPIO_PIN_10 | LL_GPIO_PIN_11 | LL_GPIO_PIN_12 | LL_GPIO_PIN_13 | LL_GPIO_PIN_14,
 									 LL_GPIO_PIN_10 | LL_GPIO_PIN_11,
 									 LL_GPIO_PIN_2 | LL_GPIO_PIN_10 | LL_GPIO_PIN_12 | LL_GPIO_PIN_13 | LL_GPIO_PIN_15,
@@ -143,7 +144,7 @@ uint8_t mode =1;
 
 
 int main(void)
- {
+{
   SystemClock_Config();
 	TIM_OC_GPIO_Config();
 	GPIO_Config();
@@ -163,7 +164,7 @@ int main(void)
 	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
 	LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 	LL_GPIO_IsInputPinSet(GPIOA, LL_GPIO_PIN_3);
-	int tempv[4] =  {0,3,2,9};
+	
 	int ij[4] = {0,0,0,0};
 	int music = 0;
 	int toggle =0;
@@ -181,13 +182,14 @@ int main(void)
 //		DAC->DHR12R1 = 0xFDC0;
 //		LL_mDelay(1000);
 //	}
-
 	while(1)
 	{
+			LL_GPIO_ResetOutputPin(GPIOB,LL_GPIO_PIN_2 |LL_GPIO_PIN_10 |LL_GPIO_PIN_11 |LL_GPIO_PIN_12 |LL_GPIO_PIN_13 |LL_GPIO_PIN_14 |LL_GPIO_PIN_15);
+			LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_0|LL_GPIO_PIN_1|LL_GPIO_PIN_2|LL_GPIO_PIN_3);
 		
-		/// GET DA TEMP
-		Temp();
-		/// END TEMP
+//		/// GET DA TEMP
+//		Temp();
+//		/// END TEMP
 //		ADC1->CR2 |= (1<<30);
 //		while((ADC1->SR & (1<<1)) == 0);
 //		adc_data = ADC1->DR;
@@ -280,7 +282,7 @@ int main(void)
 				}
 			/// END SPEAKER
 			/// LIGHT THE FCKING LIGHT
-				DAC->DHR12R1 = 0xFE10;
+				DAC->DHR12R1 = 0xFD50;
 			/// END LIGHT
 
 				break;
@@ -315,16 +317,16 @@ int main(void)
 		}
 			/// END SPEAKER
 			/// LIGHT THE FCKING LIGHT
-				DAC->DHR12R1 = 0xFDE0;
+				DAC->DHR12R1 = 0xFBEA;
 			/// END LIGHT
 				break;
 		
 			case 4 :
 					ij[0] = 4;
-					
+				
 			/// SPEAKER PART DONT TOUCH !
 			if(sound ==1)
-			for(int i=0;i<sizeof(m4)/4;)
+			for(int i=0;i<sizeof(m3)/4;)
 			{
 				if(LL_TIM_IsActiveFlag_UPDATE(TIM2) == SET )
 				{
@@ -350,14 +352,22 @@ int main(void)
 		}
 			/// END SPEAKER
 			/// LIGHT THE FCKING LIGHT
-			ADC1->CR2 |= (1<<30);
-//		while((ADC1->SR & (1<<1)) == 0);
-//		adc_data = ADC1->DR;
-				if(adc_data >= 21000)
-				DAC->DHR12R1 = 0xFFFF;
-				else if(adc_data< 21000)
-				DAC->DHR12R1 = 0xFE10;
+			ADC1->CR1 |= (1<<11);
+			ADC1->CR1 &= ~((7<<13)|(1<<24)|(1<<25));
+			ADC1->CR2 &= ~(1<<11);
+			ADC1->SMPR3 |= (2<<12);
+			ADC1->SQR5 |= (5<<0);
+			ADC1->CR2 |= (1<<0);
+			
+//			while((ADC1->SR & (1<<1)) == 0);
+//				adc_data = ADC1->DR;
+		if(LL_GPIO_IsInputPinSet(GPIOA, LL_GPIO_PIN_12))
+			DAC->DHR12R1 = 0xFFFF;
+		else 
+			DAC->DHR12R1 = 0x0000;
 			/// END LIGHT
+		
+		
 				break;
 			default:
 				break;
@@ -515,9 +525,9 @@ void GPIO_Config(void) /// 7-SEGMENT, PA04 DAC, PA05 LDR
 	
 	LL_GPIO_InitTypeDef GPIO_InitStruct;
 	
-		// SWITCH PA03
+		// PA15
 	GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pin = LL_GPIO_PIN_3;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_12;
 	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
 	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
 	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
